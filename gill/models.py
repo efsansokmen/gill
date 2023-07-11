@@ -303,6 +303,7 @@ class GILLModel(nn.Module):
         print(f'Concatenating examples for {mode}!')
         assert len(input_embs.shape) == 3, input_embs
         assert len(full_labels.shape) == 2, full_labels
+        print("batch_size", batch_size)
         assert batch_size % 2 == 0
         all_concat_input_embs = []
         all_concat_labels = []
