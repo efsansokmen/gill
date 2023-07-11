@@ -10,4 +10,7 @@ data/
 core
 
 #data
-datasets/*
+datasets/*.*
+datasets/cc3m_train.tsv
+datasets/cc3m_val.tsv
+gill/datasets/*
