@@ -12,6 +12,7 @@ import sys
 from joblib import Parallel, delayed
 from tqdm import tqdm
 import torch
+import re
 
 # Load a slightly modified version of the Stable Diffusion pipeline.
 # This allows us to extract text embeddings directly (without generating images).
@@ -25,14 +26,19 @@ input_captions_fp = sys.argv[1]  # tab separated file of captions and image ids
 clip_output_dir = sys.argv[2]  # output directory to save clip embeddings in
 os.makedirs(clip_output_dir, exist_ok=True)
 
+def sanitize_filename(filename):
+    """Remove invalid characters from the filename."""
+    return re.sub(r'[^\w\-_.]', '', filename)
 
 def save_to_path(emb, path):
     """Save embeddings to disk."""
+    #print("Saving:", path)  # Check the path
     try:
         with open(path, 'wb') as wf:
             np.save(wf, emb)
-    except:
+    except Exception as e:
         print("Error with", path)
+        print(e)  # Print the specific exception message
     return path
 
 
@@ -53,12 +59,16 @@ if __name__ == '__main__':
         examples = data[1:]
         captions = []
         image_ids = []
-
+        #print("examples",examples)
         for x in examples:
             d = x.strip().split('\t')
-            if d[1] not in existing_files:
-                captions.append(d[0])
-                image_ids.append(d[1])
+            if len(d)>1:
+                if d[1] not in existing_files:
+                    captions.append(d[0])
+                    image_ids.append(d[1])
+            else:
+                print("No caption, d:",d)
+                pass
         assert len(captions) == len(image_ids)
 
     # Extract embeddings in batches.
@@ -72,5 +82,5 @@ if __name__ == '__main__':
 
         # Save embeddings to disk in parallel.
         Parallel(n_jobs=8)(delayed(save_to_path)(
-            prompt_embeds[j, :, ...], os.path.join(clip_output_dir, f'{batch_ids[j]}.npy')
+            prompt_embeds[j, :, ...], os.path.join(clip_output_dir, f'{sanitize_filename(batch_ids[j])}.npy')
         ) for j in range(prompt_embeds.shape[0]))

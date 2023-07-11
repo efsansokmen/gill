@@ -12,20 +12,9 @@ import torchvision.datasets as datasets
 from torchvision import transforms as T
 from PIL import Image, ImageFont
 from torch.utils.data import Dataset
-import requests
-from io import BytesIO
-import re
 
 from gill import utils
 
-def extract_urls(string):
-    pattern = r'http\S+'
-    urls = re.findall(pattern, string)
-    return urls
-
-def sanitize_filename(filename):
-    """Remove invalid characters from the filename."""
-    return re.sub(r'[^\w\-_.]', '', filename)
 
 def collate_fn(batch):
     batch = list(filter(lambda x: x is not None, batch))
@@ -44,14 +33,14 @@ def get_dataset(args, split: str, tokenizer, precision: str = 'fp32') -> Dataset
   # Folder structure should look like:
   if split == 'train':
     if 'cc3m' in args.dataset:
-      dataset_paths.append(os.path.join(args.dataset_dir, 'cc3m_train.tsv'))# 'ikea_5000_train.tsv'))
-      image_data_dirs.append(os.path.join(args.image_dir, 'cc3m/training/')) #'ikea_5000_600/training'))
+      dataset_paths.append(os.path.join(args.dataset_dir, 'cc3m_train.tsv'))
+      image_data_dirs.append(os.path.join(args.image_dir, 'cc3m/training/'))
     else:
       raise NotImplementedError
 
   elif split == 'val':
     if 'cc3m' in args.val_dataset:
-      dataset_paths.append(os.path.join(args.dataset_dir, 'cc3m_val.tsv')) #'ikea_600_val.tsv'))
+      dataset_paths.append(os.path.join(args.dataset_dir, 'cc3m_val.tsv'))
       image_data_dirs.append(os.path.join(args.image_dir, 'cc3m/validation'))
     else:
       raise NotImplementedError
@@ -61,7 +50,7 @@ def get_dataset(args, split: str, tokenizer, precision: str = 'fp32') -> Dataset
     raise NotImplementedError
 
   if len(dataset_paths) > 1:
-    #print(f'{len(dataset_paths)} datasets requested: {dataset_paths}')
+    print(f'{len(dataset_paths)} datasets requested: {dataset_paths}')
     dataset = torch.utils.data.ConcatDataset([
       CsvDataset(path, image_dir, tokenizer, 'image',
         'caption', args.visual_model, train=train, max_len=args.max_len, precision=args.precision,
@@ -77,6 +66,7 @@ def get_dataset(args, split: str, tokenizer, precision: str = 'fp32') -> Dataset
     raise ValueError(f'There should be at least one valid dataset, got train={args.dataset}, val={args.val_dataset} instead.')
   return dataset
 
+
 class CsvDataset(Dataset):
   def __init__(self, input_filename, base_image_dir, tokenizer, img_key,
                caption_key, feature_extractor_model: str,
@@ -85,7 +75,7 @@ class CsvDataset(Dataset):
                num_tokens: int = 1, num_clip_tokens: int = 1):
     logging.debug(f'Loading tsv data from {input_filename}.')
     df = pd.read_csv(input_filename, sep=sep)
-    #print("df",df)
+
     self.base_image_dir = base_image_dir
     self.images = df[img_key].tolist()
     self.captions = df[caption_key].tolist()
@@ -112,42 +102,43 @@ class CsvDataset(Dataset):
     return len(self.captions)
 
   def __getitem__(self, idx):
-    #while True:
-    image_path = os.path.join(self.base_image_dir, str(self.images[idx]))
-    image_url = extract_urls(image_path)[0]
-    caption = str(self.captions[idx])
-    clip_l_path = os.path.join(self.base_image_dir, 'clip_embs', sanitize_filename(str(self.images[idx])) + '.npy')
-    #clip_l_path = os.path.join(self.base_image_dir, 'clip_embs', str(self.images[idx]) + '.npy')
-    #print("clip_l_path", clip_l_path)
-    #print("image_url",image_url)
-    response = requests.get(image_url, stream=True)
-    read_image_url = response.content
-    img = Image.open(BytesIO(read_image_url))
-    images = utils.get_pixel_values_for_model(self.feature_extractor, img)
-    # Only load if we are in generation mode.
-    with open(clip_l_path, 'rb') as f:
-      clip_emb = np.load(f, allow_pickle=True)   # (num_clip_tokens, 768)
-      clip_emb = clip_emb[:self.num_clip_tokens, :]
-    # Generation mode.
-    caption = caption
-    for i in range(self.num_tokens):
-      caption += f'[IMG{i}]'
-    tokenized_data = self.tokenizer(
-      caption,
-      return_tensors="pt",
-      padding='max_length',
-      truncation=True,
-      max_length=self.max_len)
-    tokens = tokenized_data.input_ids[0]
-    caption_len = tokenized_data.attention_mask[0].sum()
-    # If IMG tokens are overridden by padding, replace them with the correct token.
-    if tokens[-1] not in [self.tokenizer.pad_token_id, self.gen_token_idx[-1]]:
-      tokens[-self.num_tokens:] = torch.tensor(self.gen_token_idx).to(dtype=tokens.dtype,device=tokens.device)
-    decode_caption = self.tokenizer.decode(tokens, skip_special_tokens=False)
-    self.font = self.font or ImageFont.load_default()
-    cap_img = utils.create_image_of_text(decode_caption.encode('ascii', 'ignore'), width=self.image_size, nrows=2, font=self.font)
-    return image_path, images, cap_img, tokens, caption_len, tokens, caption_len, clip_emb
-      #except Exception as e:
-      #  print(f'Error reading for {image_path}')# with caption {caption}: {e}')
-      #  # Pick a new example at random.
-      #  idx = np.random.randint(0, len(self)-1)
+    while True:
+      image_path = os.path.join(self.base_image_dir, str(self.images[idx]))
+      caption = str(self.captions[idx])
+      clip_l_path = os.path.join(self.base_image_dir, 'clip_embs', str(self.images[idx]) + '.npy')
+
+      try:
+        img = Image.open(image_path)
+        images = utils.get_pixel_values_for_model(self.feature_extractor, img)
+
+        # Only load if we are in generation mode.
+        with open(clip_l_path, 'rb') as f:
+          clip_emb = np.load(f, allow_pickle=True)   # (num_clip_tokens, 768)
+          clip_emb = clip_emb[:self.num_clip_tokens, :]
+
+        # Generation mode.
+        caption = caption
+        for i in range(self.num_tokens):
+          caption += f'[IMG{i}]'
+        tokenized_data = self.tokenizer(
+          caption,
+          return_tensors="pt",
+          padding='max_length',
+          truncation=True,
+          max_length=self.max_len)
+        tokens = tokenized_data.input_ids[0]
+        caption_len = tokenized_data.attention_mask[0].sum()
+
+        # If IMG tokens are overridden by padding, replace them with the correct token.
+        if tokens[-1] not in [self.tokenizer.pad_token_id, self.gen_token_idx[-1]]:
+          tokens[-self.num_tokens:] = torch.tensor(self.gen_token_idx).to(dtype=tokens.dtype, device=tokens.device)
+
+        decode_caption = self.tokenizer.decode(tokens, skip_special_tokens=False)
+        self.font = self.font or ImageFont.load_default()
+        cap_img = utils.create_image_of_text(decode_caption.encode('ascii', 'ignore'), width=self.image_size, nrows=2, font=self.font)
+
+        return image_path, images, cap_img, tokens, caption_len, tokens, caption_len, clip_emb
+      except Exception as e:
+        print(f'Error reading for {image_path} with caption {caption}: {e}')
+        # Pick a new example at random.
+        idx = np.random.randint(0, len(self)-1)

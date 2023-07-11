@@ -43,8 +43,7 @@ from gill import utils
 from gill import validate
 
 
-llm_models = ['facebook/opt-125m', 'facebook/opt-350m', 'facebook/opt-1.3b', 'facebook/opt-2.7b',
-              'facebook/opt-6.7b', 'facebook/opt-13b', 'facebook/opt-30b', 'facebook/opt-66b']
+llm_models = ['facebook/opt-125m', 'facebook/opt-350m', 'facebook/opt-1.3b', 'facebook/opt-2.7b','facebook/opt-6.7b', 'facebook/opt-13b', 'facebook/opt-30b', 'facebook/opt-66b']
 datasets = ['cc3m']
 best_acc1 = 0  # Variable to keep track of best model so far.
 
@@ -87,15 +86,15 @@ def parse_args(args):
             help='number of training steps per epoch')
   parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
             help='manual epoch number (useful on restarts)')
-  parser.add_argument('--val_steps_per_epoch', default=-1, type=int, metavar='N',
+  parser.add_argument('--val_steps_per_epoch', default=2, type=int, metavar='N',
             help='number of validation steps per epoch')
-  parser.add_argument('-b', '--batch-size', default=200, type=int,
+  parser.add_argument('-b', '--batch-size', default=32, type=int,
             metavar='N',
             help='mini-batch size (default: 200), this is the total '
                'batch size of all GPUs on the current node when '
                'using Data Parallel or Distributed Data Parallel')
   parser.add_argument('--val-batch-size', default=None, type=int)
-  parser.add_argument('--lr', '--learning-rate', default=0.001, type=float,
+  parser.add_argument('--lr', '--learning-rate', default=0.0001, type=float,
             metavar='LR', help='initial learning rate', dest='lr')
   parser.add_argument('--lr-warmup-steps', default=2000, type=int,
             metavar='N', help='Number of steps to warm up lr.')
@@ -269,7 +268,7 @@ def main_worker(gpu, ngpus_per_node, args):
     model_args.retrieval_token_idx.append(ret_token_idx[0])
     args.retrieval_token_idx.append(ret_token_idx[0])
 
-  # Add [GEN] tokens to the vocabulary.
+  # Add [IMG] tokens to the vocabulary.
   model_args.gen_token_idx = model_args.retrieval_token_idx
   args.gen_token_idx = args.retrieval_token_idx
 
@@ -312,6 +311,7 @@ def main_worker(gpu, ngpus_per_node, args):
       args.batch_size = int(args.batch_size / ngpus_per_node)
       args.val_batch_size = int((args.val_batch_size or args.batch_size) / ngpus_per_node)
       args.workers = int((args.workers + ngpus_per_node - 1) / ngpus_per_node)
+      print("args.workers", args.workers)
       model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu], find_unused_parameters=False)
     else:
       model.cuda()
@@ -471,7 +471,7 @@ def train(train_loader, model, tokenizer, criterion, optimizer, epoch, scheduler
     elif args.precision == 'bf16':
       images = images.bfloat16()
 
-    model_modes = ['captioning', 'retrieval', 'generation']
+    model_modes = [ 'retrieval', 'generation'] #'captioning',
 
     loss = 0
 
@@ -575,7 +575,7 @@ def train(train_loader, model, tokenizer, criterion, optimizer, epoch, scheduler
 
     # Update weights
     if ((i + 1) % args.grad_accumulation_steps == 0) or (i == args.steps_per_epoch - 1):
-      # Zero out gradients of the embedding matrix outside of [GEN].
+      # Zero out gradients of the embedding matrix outside of [IMG].
       for param in model.module.model.input_embeddings.parameters():
         assert param.grad.shape[0] == len(tokenizer)
         # Keep other embeddings frozen.

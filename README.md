@@ -4,9 +4,13 @@
 <img alt="GILL chat animation" src="./dialogue.gif" width="90%">
 </p>
 
-This repository will host the code and model weights for the GILL model. Coming soon!
+This repository hosts the code and model weights for the GILL model.
 
 [Paper](http://arxiv.org/abs/2305.17216) | [Project Webpage](https://jykoh.com/gill)
+
+[![HF paper page](https://huggingface.co/datasets/huggingface/badges/raw/main/paper-page-sm-dark.svg)](https://huggingface.co/papers/2305.17216) [![Open in Spaces](https://huggingface.co/datasets/huggingface/badges/raw/main/open-in-hf-spaces-sm.svg)](https://huggingface.co/spaces/jykoh/gill)
+
+
 
 
 ## Model and Usage
@@ -98,22 +102,84 @@ You can also run a small job on CPU, for testing purposes:
 python -u main.py \
     --dataset=cc3m  --val-dataset=cc3m \
     --opt-version='facebook/opt-125m' --visual-model='openai/clip-vit-base-patch16' \
-    --exp-name='fromage_exp'   --log-base-dir='runs/' \
+    --exp-name='gill_exp'   --log-base-dir='runs/' \
     --batch-size=2  --val-batch-size=2  --precision='fp32'  --print-freq=1 \
     --epochs=2  --val_steps_per_epoch=2   --steps_per_epoch=2
 ```
 
+## Pruning the Checkpoint
+
+As GILL only consists of a few pretrained linear layers and the `[IMG]` embeddings, we can discard most of the pretrained weights to save on disk space. If you have trained a new model, and wish to do so, you can use `gill/prune_model_ckpt.py` file to prune the model weights, and format the ckpt as required by `gill/models.py`:
+
+```
+python gill/prune_model_ckpt.py  runs/gill_exp
+```
+
+We used the same script to create the weights in the `checkpoints/` directory.
+
+
+
+## Evaluation
+
+We provide code to reproduce the VIST (Table 1) and VisDial (Table 2) results presented in our paper.
+
+### VIST Evaluation
+
+To run the VIST evaluation, first download the annotations from the val set of the [official VIST dataset](https://visionandlanguage.net/VIST/json_files/story-in-sequence/SIS-with-labels.tar.gz). We will need to download and process the image files for running the evaluations presented in the paper. This can be done by running `python evals/download_vist_images.py`. By default, images are saved to the `sis/val_images/` directory. Downloading the images should take about 1 hour on a decent connection (as images are downloaded directly from the Flickr URLs).
+
+After the image files are downloaded, we can run the VIST generation experiment described in Section 4.1 our paper. First, we will run GILL to generate the last image in the sequence, conditioned on image + text inputs:
+
+```
+python evals/generate_vist_images.py  gill_vist_outputs
+```
+
+The generated images for each VIST example will be saved in `gill_vist_outputs/`. Then, to benchmark the models, we can compute the CLIP similarity scores:
+```
+python evals/compute_clip_similarity_vist.py
+```
+
+For the LPIPS metric, please refer to their [official GitHub repo](https://github.com/richzhang/PerceptualSimilarity) for installation instructions. Then, we can compute the results as follows:
+```
+python lpips_2dirs.py -d0  sis/val_images/  -d1  gill_vist_outputs  -o results.txt --use_gpu
+```
+For LPIPS, you may have to resize the images to 256x256 to match the AlexNet model used.
+
+
+### VisDial Evaluation
+
+
+Similarly, for VisDial, download the [VisDial validation annotations](https://www.dropbox.com/s/ibs3a0zhw74zisc/visdial_1.0_val.zip?dl=0), the [dense answer annotations](https://www.dropbox.com/s/3knyk09ko4xekmc/visdial_1.0_val_dense_annotations.json?dl=0), and the [images](https://www.dropbox.com/s/twmtutniktom7tu/VisualDialog_val2018.zip?dl=0). Extract everything to the `VisualDialog` folder.
+
+We can run the VisDial generation experiment described in Section 4.1 our paper. We run GILL to generate an image conditioned on the full text dialogue input:
+
+```
+python evals/generate_visdial_images.py  gill_visdial_outputs
+```
+
+The generated images for each VisDial example will be saved in `gill_visdial_outputs/`. Then, to benchmark the models, we can compute the CLIP similarity scores:
+
+```
+python evals/compute_clip_similarity_visdial.py
+```
+
+For LPIPS, please follow the VIST instructions above to compute scores using the [official LPIPS GitHub repo](https://github.com/richzhang/PerceptualSimilarity).
+
+
+## Gradio Demo
+
+You can launch your own version of the Gradio demo locally by running `python demo/app_gradio.py`, or duplicating the [HuggingFace space](https://huggingface.co/spaces/jykoh/gill).
+
 
 ## TODOs
 
-- [ ] Add evaluation scripts for reproducing the results in the paper.
-- [ ] Add web demo.
+- [x] Add web demo.
+- [x] Add evaluation scripts for reproducing the results in the paper.
 - [x] Add training code and instructions for training a new GILL model on CC3M.
 
 
 ## Citation
 
-If you find this work useful, please consider citing:
+If you find this work or our code useful, please consider citing:
 
 ```
 @article{koh2023generating,

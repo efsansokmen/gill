@@ -20,7 +20,7 @@ def validate(val_loader, model, tokenizer, criterion, epoch, args):
   writer = SummaryWriter(args.log_dir)
   bleu_scorers = [BLEUScore(n_gram=i) for i in [1, 2, 3, 4]]
   actual_step = (epoch + 1) * args.steps_per_epoch
-  model_modes = ['captioning', 'retrieval', 'generation']
+  model_modes = ['retrieval', 'generation'] # 'captioning'
   num_words = 32  # Number of words to generate.
 
   feature_extractor = utils.get_feature_extractor_for_model(args.visual_model, image_size=args.image_size, train=False)
@@ -64,6 +64,7 @@ def validate(val_loader, model, tokenizer, criterion, epoch, args):
           images = images.bfloat16()
 
         for model_mode in model_modes:
+          print("model_mode", model_mode)
           # compute output
           if model_mode == 'retrieval':
             tgt_tokens, token_len = ret_tokens, ret_caption_len
@@ -71,7 +72,10 @@ def validate(val_loader, model, tokenizer, criterion, epoch, args):
             tgt_tokens, token_len = gen_tokens, gen_caption_len
           else:
             tgt_tokens, token_len = ret_tokens, ret_caption_len  # For captioning, it doesn't matter.
-
+          print("images", images)
+          print("tgt_tokens",tgt_tokens)
+          print("token_len", token_len)
+          print("args.input_prompt",args.input_prompt)
           (model_output, full_labels, last_embedding, _, visual_embs, visual_embs_norm,
             input_embs_norm, _) = model(images, tgt_tokens, token_len, mode=model_mode, input_prefix=args.input_prompt)  # (N, T, C)
 
@@ -89,7 +93,11 @@ def validate(val_loader, model, tokenizer, criterion, epoch, args):
             acc1, acc5 = utils.accuracy(output[:, :-1, :], full_labels[:, 1:], -100, topk=(1, 5))
             top1.update(acc1[0], images.size(0))
             top5.update(acc5[0], images.size(0))
-            ce_losses.update(loss.item(), images.size(0))
+            #print("images",images)
+            print("images.size",images.size)
+            print("loss", loss)
+            print("loss[-1].item()", loss[-1].item())
+            ce_losses.update(loss[-1].item(), images.size(0))
           elif model_mode == 'retrieval':
             if args.distributed:
               original_last_embedding = torch.clone(last_embedding)
@@ -121,6 +129,7 @@ def validate(val_loader, model, tokenizer, criterion, epoch, args):
 
           # Run auto-regressive generation sample
           if model_mode == 'captioning':
+            print("num_words",num_words)
             min_word_tokens = num_words
 
             input_embs = model.module.model.get_visual_embs(images, mode='captioning')  # (2, n_visual_tokens, D)
@@ -174,6 +183,10 @@ def validate(val_loader, model, tokenizer, criterion, epoch, args):
               # Generate without conditions just to test.
               input_ids = tgt_tokens[:, :3]  # Use first 3 tokens as initial prompt for generation.
               input_embs = model.module.model.input_embeddings(input_ids)  # (N, T, D)
+              print("input_embs", input_embs)
+              print("tgt_tokens",tgt_tokens)
+              print("token_len", token_len)
+              print("num_words",num_words)
               generated_ids, _, _ = model(input_embs, tgt_tokens, token_len, generate=True, num_words=num_words, temperature=0.0, top_p=1.0)
               generated_ids = torch.cat([input_ids, generated_ids], dim=1)
               generated_captions = tokenizer.batch_decode(generated_ids, skip_special_tokens=False)
