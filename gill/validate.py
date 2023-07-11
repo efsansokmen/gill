@@ -20,7 +20,7 @@ def validate(val_loader, model, tokenizer, criterion, epoch, args):
   writer = SummaryWriter(args.log_dir)
   bleu_scorers = [BLEUScore(n_gram=i) for i in [1, 2, 3, 4]]
   actual_step = (epoch + 1) * args.steps_per_epoch
-  model_modes = ['retrieval', 'generation'] # 'captioning'
+  model_modes = ['captioning', 'retrieval', 'generation'] # 
   num_words = 32  # Number of words to generate.
 
   feature_extractor = utils.get_feature_extractor_for_model(args.visual_model, image_size=args.image_size, train=False)
@@ -72,9 +72,8 @@ def validate(val_loader, model, tokenizer, criterion, epoch, args):
             tgt_tokens, token_len = gen_tokens, gen_caption_len
           else:
             tgt_tokens, token_len = ret_tokens, ret_caption_len  # For captioning, it doesn't matter.
-          print("images", images)
-          print("tgt_tokens",tgt_tokens)
-          print("token_len", token_len)
+          #print("tgt_tokens",tgt_tokens)
+          #print("token_len", token_len)
           print("args.input_prompt",args.input_prompt)
           (model_output, full_labels, last_embedding, _, visual_embs, visual_embs_norm,
             input_embs_norm, _) = model(images, tgt_tokens, token_len, mode=model_mode, input_prefix=args.input_prompt)  # (N, T, C)
@@ -96,8 +95,8 @@ def validate(val_loader, model, tokenizer, criterion, epoch, args):
             #print("images",images)
             print("images.size",images.size)
             print("loss", loss)
-            print("loss[-1].item()", loss[-1].item())
-            ce_losses.update(loss[-1].item(), images.size(0))
+            #print("loss[-1].item()", loss[-1].item())
+            ce_losses.update(loss.item(), images.size(0))
           elif model_mode == 'retrieval':
             if args.distributed:
               original_last_embedding = torch.clone(last_embedding)

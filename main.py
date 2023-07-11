@@ -88,7 +88,7 @@ def parse_args(args):
             help='manual epoch number (useful on restarts)')
   parser.add_argument('--val_steps_per_epoch', default=2, type=int, metavar='N',
             help='number of validation steps per epoch')
-  parser.add_argument('-b', '--batch-size', default=32, type=int,
+  parser.add_argument('-b', '--batch-size', default=64, type=int,
             metavar='N',
             help='mini-batch size (default: 200), this is the total '
                'batch size of all GPUs on the current node when '
@@ -471,7 +471,7 @@ def train(train_loader, model, tokenizer, criterion, optimizer, epoch, scheduler
     elif args.precision == 'bf16':
       images = images.bfloat16()
 
-    model_modes = [ 'retrieval', 'generation'] #'captioning',
+    model_modes = [ 'captioning', 'retrieval', 'generation'] #,
 
     loss = 0
 
@@ -527,7 +527,8 @@ def train(train_loader, model, tokenizer, criterion, optimizer, epoch, scheduler
           start_idx = args.rank * images.shape[0]
           end_idx = start_idx + images.shape[0]
 
-        print(visual_embs.shape, last_embedding.shape)
+        print("visual_embs.shape", visual_embs.shape) 
+        print("last_embedding.shape", last_embedding.shape)
         logits_per_image = visual_embs @ last_embedding.t()
         logits_per_text = logits_per_image.t()
         if i == 0:
