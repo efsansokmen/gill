@@ -44,15 +44,15 @@ def get_dataset(args, split: str, tokenizer, precision: str = 'fp32') -> Dataset
   # Folder structure should look like:
   if split == 'train':
     if 'cc3m' in args.dataset:
-      dataset_paths.append(os.path.join(args.dataset_dir, 'ikea_5000_train.tsv'))#'cc3m_train.tsv'))
-      image_data_dirs.append(os.path.join(args.image_dir, 'ikea_5000_600/training'))#'cc3m/training/'))
+      dataset_paths.append(os.path.join(args.dataset_dir, 'cc3m_train.tsv'))# 'ikea_5000_train.tsv'))
+      image_data_dirs.append(os.path.join(args.image_dir, 'cc3m/training/')) #'ikea_5000_600/training'))
     else:
       raise NotImplementedError
 
   elif split == 'val':
     if 'cc3m' in args.val_dataset:
-      dataset_paths.append(os.path.join(args.dataset_dir, 'ikea_600_val.tsv'))
-      image_data_dirs.append(os.path.join(args.image_dir, 'ikea_5000_600/validation'))
+      dataset_paths.append(os.path.join(args.dataset_dir, 'cc3m_val.tsv')) #'ikea_600_val.tsv'))
+      image_data_dirs.append(os.path.join(args.image_dir, 'cc3m/validation'))
     else:
       raise NotImplementedError
 
