@@ -5,3 +5,9 @@ __pycache__
 venv
 runs/
 data/
+
+#core
+core
+
+#data
+datasets/*
