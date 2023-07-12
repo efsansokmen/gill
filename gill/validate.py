@@ -95,7 +95,7 @@ def validate(val_loader, model, tokenizer, criterion, epoch, args):
             #print("images",images)
             print("images.size",images.size)
             print("loss", loss)
-            #print("loss[-1].item()", loss[-1].item())
+            print("loss[-1].item()", loss.item())
             ce_losses.update(loss.item(), images.size(0))
           elif model_mode == 'retrieval':
             if args.distributed:
