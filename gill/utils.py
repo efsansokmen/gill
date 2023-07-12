@@ -11,7 +11,9 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 import random
 import requests
 from io import BytesIO
-
+#https://stackoverflow.com/questions/12984426/pil-ioerror-image-file-truncated-with-big-images
+from PIL import ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 def dump_git_status(out_file=sys.stdout, exclude_file_patterns=['*.ipynb', '*.th', '*.sh', '*.txt', '*.json']):
   """Logs git status to stdout."""
