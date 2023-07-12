@@ -88,7 +88,7 @@ def parse_args(args):
             help='manual epoch number (useful on restarts)')
   parser.add_argument('--val_steps_per_epoch', default=2, type=int, metavar='N',
             help='number of validation steps per epoch')
-  parser.add_argument('-b', '--batch-size', default=64, type=int,
+  parser.add_argument('-b', '--batch-size', default=200, type=int,
             metavar='N',
             help='mini-batch size (default: 200), this is the total '
                'batch size of all GPUs on the current node when '
@@ -144,7 +144,7 @@ def parse_args(args):
             help='path to latest checkpoint (default: none)')
   parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
             help='evaluate model on validation set')
-  parser.add_argument('--world-size', default=-1, type=int,
+  parser.add_argument('--world-size', default=2, type=int,
             help='number of nodes for distributed training')
   parser.add_argument('--rank', default=-1, type=int,
             help='node rank for distributed training')
