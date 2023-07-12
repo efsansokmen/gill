@@ -15,6 +15,7 @@ from torch.utils.data import Dataset
 import requests
 from io import BytesIO
 import re
+import time
 
 from gill import utils
 
@@ -44,15 +45,15 @@ def get_dataset(args, split: str, tokenizer, precision: str = 'fp32') -> Dataset
   # Folder structure should look like:
   if split == 'train':
     if 'cc3m' in args.dataset:
-      dataset_paths.append(os.path.join(args.dataset_dir, 'cc3m_train.tsv'))# 'ikea_5000_train.tsv'))
-      image_data_dirs.append(os.path.join(args.image_dir, 'cc3m/training/')) #'ikea_5000_600/training'))
+      dataset_paths.append(os.path.join(args.dataset_dir, 'ikea_8000_train.tsv'))# 'ikea_5000_train.tsv'))
+      image_data_dirs.append(os.path.join(args.image_dir, 'ikea_8000_756/training/')) #'ikea_5000_600/training'))
     else:
       raise NotImplementedError
 
   elif split == 'val':
     if 'cc3m' in args.val_dataset:
-      dataset_paths.append(os.path.join(args.dataset_dir, 'cc3m_val.tsv')) #'ikea_600_val.tsv'))
-      image_data_dirs.append(os.path.join(args.image_dir, 'cc3m/validation'))
+      dataset_paths.append(os.path.join(args.dataset_dir, 'ikea_756_val.tsv')) #'ikea_600_val.tsv'))
+      image_data_dirs.append(os.path.join(args.image_dir, 'ikea_8000_756/validation'))
     else:
       raise NotImplementedError
 
@@ -120,7 +121,12 @@ class CsvDataset(Dataset):
     #clip_l_path = os.path.join(self.base_image_dir, 'clip_embs', str(self.images[idx]) + '.npy')
     #print("clip_l_path", clip_l_path)
     #print("image_url",image_url)
-    response = requests.get(image_url, stream=True)
+    try:
+      response = requests.get(image_url, stream=True)
+    except(requests.exceptions.ConnectionError):
+      print("Handling requests.exceptions.ConnectionError")
+      time.sleep(2)
+      response = requests.get(image_url, stream=True)
     read_image_url = response.content
     img = Image.open(BytesIO(read_image_url))
     images = utils.get_pixel_values_for_model(self.feature_extractor, img)
