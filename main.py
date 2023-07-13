@@ -41,7 +41,24 @@ from gill import losses as losses_utils
 from gill import models
 from gill import utils
 from gill import validate
+import wandb
+from dotenv import load_dotenv
 
+os.environ["PYTHONPATH"]    = "venv/bin/activate" 
+
+# Load keys
+load_dotenv()
+os.environ['WANDB_API_KEY'] = os.getenv('WANDB_API')
+os.environ['WANDB_HOST']    = os.getenv('WANDB_HOST')
+os.environ['WANDB_PROJECT'] = os.getenv('WANDB_PROJECT')
+os.environ['WANDB_ENTITY']  = os.getenv('WANDB_ENTITY')
+os.environ['WANDB_MODE']    = os.getenv('WANDB_MODE')
+
+WANDB_API_KEY = os.environ['WANDB_API_KEY']
+WANDB_HOST    = os.environ['WANDB_HOST']
+WANDB_MODE    = os.environ['WANDB_MODE'] 
+WANDB_ENTITY  = os.environ['WANDB_ENTITY'] 
+WANDB_PROJECT = os.environ['WANDB_PROJECT'] 
 
 llm_models = ['facebook/opt-125m', 'facebook/opt-350m', 'facebook/opt-1.3b', 'facebook/opt-2.7b','facebook/opt-6.7b', 'facebook/opt-13b', 'facebook/opt-30b', 'facebook/opt-66b']
 datasets = ['cc3m']
@@ -88,7 +105,7 @@ def parse_args(args):
             help='manual epoch number (useful on restarts)')
   parser.add_argument('--val_steps_per_epoch', default=2, type=int, metavar='N',
             help='number of validation steps per epoch')
-  parser.add_argument('-b', '--batch-size', default=200, type=int,
+  parser.add_argument('-b', '--batch-size', default=96, type=int,
             metavar='N',
             help='mini-batch size (default: 200), this is the total '
                'batch size of all GPUs on the current node when '
@@ -166,12 +183,41 @@ def parse_args(args):
 
 def main(args):
   args = parse_args(args)
+  # Setup w&b config
+  config = {
+      "llm_model":           args.opt_version,
+      "visual_encoder":      args.visual_model,
+      "n_visual_tokens":     args.n_visual_tokens,
+      "ret_emb_dim":         args.ret_emb_dim,
+      "gen_emb_dim":         args.gen_emb_dim,
+      "text_fc_mode":        args.text_fc_mode,
+      "ret_text_fc_mode":    args.ret_text_fc_mode,
+      "lr":                  args.lr,
+      "beta1":               args.beta1,
+      "beta2":               args.beta2,
+      "args.weight_decay":   args.weight_decay,
+      "num_tokens":          args.num_tokens,
+      "num_clip_tokens":     args.num_clip_tokens,
+      "batch_size" :         args.batch_size,
+      "val_batch_size":      args.val_batch_size,
+      "workers":             args.workers,
+      "seed":                args.seed,
+      "gpu":                 args.gpu,
+      "precision":           args.precision
+  }
+
   i = 1
   args.log_dir = os.path.join(args.log_base_dir, args.exp_name)
   while os.path.exists(args.log_dir):
     args.log_dir = os.path.join(args.log_base_dir, f'{args.exp_name}_{i}')
     i += 1
   os.makedirs(args.log_dir)
+
+  # W&B logging
+  # Config is a sub-dictionary of my_args for W&B logging. Currently manual
+  wandb.login(host=WANDB_HOST, relogin=False)
+  wandb.tensorboard.patch(root_logdir=args.log_dir, save=True, tensorboard_x=True)
+  wandb.init(project=WANDB_PROJECT, entity=WANDB_ENTITY, config=config) #sync_tensorboard=True,
 
   with open(os.path.join(args.log_dir, f'args.json'), 'w') as wf:
     json.dump(vars(args), wf, indent=4)
@@ -211,7 +257,7 @@ def main(args):
   else:
     # Simply call main_worker function
     main_worker(args.gpu, ngpus_per_node, args)
-
+  wandb.finish()
 
 def main_worker(gpu, ngpus_per_node, args):
   global best_acc1
@@ -311,7 +357,6 @@ def main_worker(gpu, ngpus_per_node, args):
       args.batch_size = int(args.batch_size / ngpus_per_node)
       args.val_batch_size = int((args.val_batch_size or args.batch_size) / ngpus_per_node)
       args.workers = int((args.workers + ngpus_per_node - 1) / ngpus_per_node)
-      print("args.workers", args.workers)
       model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu], find_unused_parameters=False)
     else:
       model.cuda()

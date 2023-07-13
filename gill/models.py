@@ -266,7 +266,7 @@ class GILLModel(nn.Module):
         # Pad to max length.
         input_embs = torch.stack(all_concat_input_embs, axis=0)  # (N/2, T*2, 768)
         full_labels = torch.stack(all_concat_labels, axis=0)  # (N/2, T*2, 768)
-        print("Concatenated full_labels:", full_labels[0, ...])
+        #print("Concatenated full_labels:", full_labels[0, ...])
         assert input_embs.shape == (bs // 2, seq_len * 2 - 1, embs_dim), input_embs.shape
         assert full_labels.shape == (bs // 2, seq_len * 2 - 1), full_labels.shape
 
