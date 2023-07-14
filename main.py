@@ -216,8 +216,8 @@ def main(args):
   # W&B logging
   # Config is a sub-dictionary of my_args for W&B logging. Currently manual
   wandb.login(host=WANDB_HOST, relogin=False)
-  wandb.tensorboard.patch(root_logdir=args.log_dir, save=True, tensorboard_x=True)
-  wandb.init(project=WANDB_PROJECT, entity=WANDB_ENTITY, config=config) #sync_tensorboard=True,
+  #wandb.tensorboard.patch(root_logdir=args.log_dir, save=True, tensorboard_x=True)
+  wandb.init(project=WANDB_PROJECT, entity=WANDB_ENTITY, config=config,sync_tensorboard=True)
 
   with open(os.path.join(args.log_dir, f'args.json'), 'w') as wf:
     json.dump(vars(args), wf, indent=4)

@@ -20,6 +20,17 @@ def sanitize_filename(filename):
     """Remove invalid characters from the filename."""
     return re.sub(r'[^\w\-_.]', '', filename)
 
+def name_parser(filename):
+  # Find the index of ".jpg"
+  index_jpg = filename.find(".jpg")
+  index_jpeg = filename.find(".jpeg")
+  index_png = filename.find(".png")
+  # Find the minimum index among ".jpg", ".jpeg", ".png"
+  max_index = max(index_jpg, index_jpeg, index_png)
+  # Extract the substring up to ".jpg" or ".png" or ".jpeg"
+  substring_npy = filename + ".npy"
+  return substring_npy
+
 def collate_fn(batch):
     batch = list(filter(lambda x: x is not None, batch))
     return torch.utils.data.dataloader.default_collate(batch)
@@ -45,7 +56,7 @@ def get_dataset(args, split: str, tokenizer, precision: str = 'fp32') -> Dataset
   elif split == 'val':
     if 'cc3m' in args.val_dataset:
       dataset_paths.append(os.path.join(args.dataset_dir, 'ikea_756_val.tsv'))
-      image_data_dirs.append(os.path.join(args.image_dir, 'ikea_8000_756/validation'))
+      image_data_dirs.append(os.path.join(args.image_dir, 'ikea_8000_756/validation/'))
     else:
       raise NotImplementedError
 
@@ -106,10 +117,11 @@ class CsvDataset(Dataset):
 
   def __getitem__(self, idx):
     while True:
-      image_path = os.path.join(self.base_image_dir, str(self.images[idx]))
+      image_path = os.path.join(self.base_image_dir, 'images', sanitize_filename(str(self.images[idx])))
+      
       caption = str(self.captions[idx])
-      clip_l_path = os.path.join(self.base_image_dir, 'clip_embs', sanitize_filename(str(self.images[idx])) + '.npy')
-
+      clip_l_path = os.path.join(self.base_image_dir, 'clip_embs', sanitize_filename(str(self.images[idx])) + ".npy")
+      #clip_l_path = name_parser(clip_l_path_)
       try:
         img = Image.open(image_path)
         images = utils.get_pixel_values_for_model(self.feature_extractor, img)
@@ -141,6 +153,7 @@ class CsvDataset(Dataset):
         cap_img = utils.create_image_of_text(decode_caption.encode('ascii', 'ignore'), width=self.image_size, nrows=2, font=self.font)
 
         return image_path, images, cap_img, tokens, caption_len, tokens, caption_len, clip_emb
+      
       except Exception as e:
         print(f'Error reading for {image_path} with caption {caption}: {e}')
         # Pick a new example at random.
